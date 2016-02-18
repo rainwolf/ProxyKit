@@ -7,8 +7,7 @@
 //
 
 @import XCTest;
-#import "GCDAsyncProxySocket.h"
-#import "SOCKSProxy.h"
+@import ProxyKit;
 @import CocoaLumberjack;
 @import CocoaAsyncSocket;
 
@@ -18,6 +17,7 @@
 
 @property (nonatomic, strong) SOCKSProxy *proxy;
 @property (nonatomic, strong) GCDAsyncProxySocket *clientSocket;
+@property (nonatomic) uint16_t portNumber;
 @end
 
 @implementation ProxyKitTests
@@ -26,6 +26,7 @@
 {
     [super setUp];
     [DDLog addLogger:[DDTTYLogger sharedInstance]];
+    self.portNumber = [self randomPort];
 }
 
 - (void)tearDown
@@ -38,10 +39,14 @@
     [super tearDown];
 }
 
+- (uint16_t) randomPort {
+    return arc4random() % (65535 - 1024) + 1024;
+}
+
 - (void)testClientInitialization
 {
     GCDAsyncProxySocket *socket = [[GCDAsyncProxySocket alloc] init];
-    [socket setProxyHost:@"127.0.0.1" port:9050 version:GCDAsyncSocketSOCKSVersion5];
+    [socket setProxyHost:@"127.0.0.1" port:self.portNumber version:GCDAsyncSocketSOCKSVersion5];
     NSError *error = nil;
     BOOL success = [socket connectToHost:@"example.com" onPort:80 error:&error];
     XCTAssertTrue(success, @"connectToHost:onPort:error: failed: %@", error);
@@ -52,10 +57,10 @@
     self.proxy = [[SOCKSProxy alloc] init];
     self.proxy.delegate = self;
     self.proxy.callbackQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-    BOOL success = [self.proxy startProxyOnPort:9050 error:&error];
+    BOOL success = [self.proxy startProxyOnPort:self.portNumber error:&error];
     XCTAssertTrue(success, @"could not start proxy: %@", error);
     self.clientSocket = [[GCDAsyncProxySocket alloc] initWithDelegate:self delegateQueue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)];
-    [self.clientSocket setProxyHost:@"127.0.0.1" port:9050 version:GCDAsyncSocketSOCKSVersion5];
+    [self.clientSocket setProxyHost:@"127.0.0.1" port:self.portNumber version:GCDAsyncSocketSOCKSVersion5];
     error = nil;
     success = [self.clientSocket connectToHost:@"example.com" onPort:80 error:&error];
     XCTAssertTrue(success, @"connectToHost:onPort:error: failed: %@", error);
@@ -74,12 +79,12 @@
     self.proxy.delegate = self;
     self.proxy.callbackQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
     NSString *username = @"username";
-    NSString *password = @"passsword";
-    BOOL success = [self.proxy startProxyOnPort:9050 error:&error];
+    NSString *password = @"password";
+    BOOL success = [self.proxy startProxyOnPort:self.portNumber error:&error];
     [self.proxy addAuthorizedUser:username password:password];
     XCTAssertTrue(success, @"could not start proxy: %@", error);
     self.clientSocket = [[GCDAsyncProxySocket alloc] initWithDelegate:self delegateQueue:dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)];
-    [self.clientSocket setProxyHost:@"127.0.0.1" port:9050 version:GCDAsyncSocketSOCKSVersion5];
+    [self.clientSocket setProxyHost:@"127.0.0.1" port:self.portNumber version:GCDAsyncSocketSOCKSVersion5];
     [self.clientSocket setProxyUsername:username password:password];
     error = nil;
     success = [self.clientSocket connectToHost:@"example.com" onPort:80 error:&error];
